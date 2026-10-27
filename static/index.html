@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能旅行助手</title>
+<style>
+  :root {
+    --bg: #eef5fd; --card: #ffffff;
+    --primary: #3b82f6; --primary-2: #60a5fa; --accent: #fbbf24;
+    --text: #1e3a5f; --muted: #6b82a0; --border: #dbe7f5;
+    --shadow: 0 8px 30px rgba(59,130,246,.10);
+    --shadow-lg: 0 16px 50px rgba(59,130,246,.16);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: linear-gradient(180deg, #dbeafe 0%, var(--bg) 340px);
+    color: var(--text); height: 100vh; display: flex; flex-direction: column;
+  }
+
+  /* ===== 顶栏（流动渐变）===== */
+  header {
+    background: linear-gradient(120deg, #3b82f6, #60a5fa, #38bdf8);
+    background-size: 200% 200%;
+    animation: gradientShift 10s ease infinite;
+    color: #fff; padding: 18px 26px; display: flex; align-items: center;
+    justify-content: space-between; box-shadow: 0 4px 20px rgba(99,102,241,.35); z-index: 10;
+  }
+  @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand .logo {
+    width: 44px; height: 44px; border-radius: 14px;
+    background: rgba(255,255,255,.18); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.2);
+  }
+  .brand .logo img { width: 32px; height: 42px; object-fit: contain; }
+  .brand h1 { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+  .brand p { font-size: 12px; opacity: .85; margin-top: 1px; }
+  #resetBtn, #teamBtn {
+    background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.28);
+    padding: 8px 18px; border-radius: 22px; cursor: pointer; font-size: 13px;
+    backdrop-filter: blur(6px); transition: all .2s;
+  }
+  #resetBtn:hover, #teamBtn:hover { background: rgba(255,255,255,.26); transform: translateY(-1px); }
+
+  main { flex: 1; overflow-y: auto; max-width: 900px; width: 100%; margin: 0 auto; padding: 26px 22px 140px; }
+  #messages { display: flex; flex-direction: column; gap: 22px; }
+
+  /* ===== 欢迎页 ===== */
+  #welcome { padding: 40px 0 10px; animation: fadein .5s ease; }
+  .welcome-inner {
+    display: flex; align-items: center;
+    padding: 48px 44px;
+    min-height: 470px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.9) 42%, rgba(255,255,255,.5) 70%, rgba(255,255,255,.06) 100%),
+      url('/static/hero1.jpg') right center / auto 100% no-repeat;
+    border-radius: 28px; border: 1px solid var(--border); box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .w-left { flex: 1; min-width: 0; text-align: left; max-width: 620px; }
+  .w-icon { margin-bottom: 6px; display: inline-block; animation: float 3.5s ease-in-out infinite; }
+  .w-icon img { width: 104px; height: 138px; object-fit: contain; }
+  @keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+  .w-left h2 { font-size: 27px; font-weight: 800; margin-bottom: 10px; background: linear-gradient(120deg, #3b82f6, #0ea5e9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .w-left p { color: var(--muted); font-size: 14px; max-width: 440px; margin: 0 0 18px; line-height: 1.7; }
+
+  /* 思维导图 */
+  .mindmap { display: flex; align-items: center; gap: 18px; margin: 0 0 22px; }
+  .mm-center {
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    color: #fff; padding: 14px 18px; border-radius: 16px; font-weight: 700; font-size: 14px;
+    box-shadow: 0 8px 20px rgba(59,130,246,.28); white-space: nowrap; flex: none;
+  }
+  .mm-branches { display: flex; flex-direction: column; gap: 7px; position: relative; padding-left: 16px; }
+  .mm-branches::before { content:""; position:absolute; left:0; top:6px; bottom:6px; width:2px; background:#bfdbfe; border-radius:2px; }
+  .mm-item { background:#fff; border:1px solid #dbeafe; padding:6px 13px; border-radius:10px; font-size:12.5px; color:#1e40af; position:relative; }
+  .mm-item::before { content:""; position:absolute; left:-16px; top:50%; width:16px; height:2px; background:#bfdbfe; }
+
+  .w-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .w-chips button {
+    background: #fff; border: 1px solid var(--border); color: var(--text);
+    padding: 10px 18px; border-radius: 22px; cursor: pointer; font-size: 14px;
+    box-shadow: 0 2px 8px rgba(30,58,95,.05); transition: all .18s;
+  }
+  .w-chips button:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(59,130,246,.15); }
+  @media (max-width: 720px) {
+    .welcome-inner { padding: 36px 22px; text-align: center; min-height: 0; background: linear-gradient(160deg, #ffffff, #eaf3fe); }
+    .w-left { text-align: center; max-width: none; }
+    .w-left p { margin: 0 auto 18px; }
+    .mindmap { justify-content: center; }
+    .w-chips { justify-content: center; }
+  }
+
+  .user-msg { align-self: flex-end; max-width: 75%; }
+  .user-msg .bubble {
+    background: linear-gradient(135deg, #3b82f6, #60a5fa);
+    color: #fff; padding: 12px 18px; border-radius: 18px 18px 4px 18px;
+    font-size: 15px; line-height: 1.5; word-break: break-word; box-shadow: var(--shadow);
+  }
+
+  .loading { display: flex; gap: 7px; padding: 16px 18px; }
+  .loading span { width: 9px; height: 9px; border-radius: 50%; background: var(--primary); animation: bounce 1.2s infinite; }
+  .loading span:nth-child(2) { animation-delay: .2s; }
+  .loading span:nth-child(3) { animation-delay: .4s; }
+  @keyframes bounce { 0%,60%,100% { transform: translateY(0); opacity:.35; } 30% { transform: translateY(-7px); opacity:1; } }
+
+  /* ===== 询问面板 ===== */
+  .question { background: var(--card); border-radius: 22px; box-shadow: var(--shadow); padding: 24px 26px; animation: fadein .35s ease; border: 1px solid var(--border); }
+  .q-title { font-weight: 700; font-size: 16px; margin-bottom: 18px; }
+  .q-group { margin-bottom: 15px; }
+  .q-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 600; }
+  .q-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .q-opts button { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border); background: #fff; color: var(--text); cursor: pointer; font-size: 14px; transition: all .15s; }
+  .q-opts button:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .q-opts button.active { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(99,102,241,.3); }
+  .mbti-dims { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dim { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .dim button { padding: 8px 14px; border: none; background: #fff; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted); transition: all .15s; }
+  .dim button.active { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff; }
+  .mbti-result { margin-top: 10px; font-size: 14px; font-weight: 700; color: var(--primary); }
+  .q-add-member { width: 100%; padding: 9px; border: 1px dashed var(--border); border-radius: 10px; background: #f8fafc; color: var(--primary); cursor: pointer; font-size: 13px; margin-bottom: 8px; }
+  .q-add-member:hover { background: #eef2ff; }
+  .q-date { padding: 9px 16px; border-radius: 20px; border: 1px solid var(--border); font-size: 14px; outline: none; font-family: inherit; transition: border .15s; }
+  .q-date:focus { border-color: var(--primary); }
+  .q-text { width: 100%; padding: 9px 14px; border-radius: 12px; border: 1px solid var(--border); font-size: 14px; outline: none; font-family: inherit; transition: border .15s; }
+  .q-text:focus { border-color: var(--primary); }
+  .q-submit { margin-top: 8px; width: 100%; padding: 13px; border: none; border-radius: 14px; background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: all .2s; box-shadow: 0 6px 16px rgba(99,102,241,.3); }
+  .q-submit:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+  .q-submit:not(:disabled):hover { transform: translateY(-1px); }
+
+  /* ===== 行程卡片 ===== */
+  .plan { background: var(--card); border-radius: 24px; box-shadow: var(--shadow); overflow: hidden; animation: fadein .45s ease; border: 1px solid var(--border); }
+  @keyframes fadein { from { opacity: 0; transform: translateY(14px);} to { opacity:1; transform:none; } }
+
+  .plan-head { padding: 20px 26px; background: linear-gradient(135deg, #f0f1ff, #faf5ff); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .plan-city { font-size: 24px; font-weight: 800; letter-spacing: .5px; }
+  .plan-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { padding: 6px 13px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #fff; border: 1px solid var(--border); }
+  .chip.weather { color: #0284c7; border-color: #bae6fd; background: #f0f9ff; }
+  .chip.budget { color: #b45309; border-color: #fde68a; background: #fffbeb; }
+  .chip.trans { color: #6d28d9; border-color: #ddd6fe; background: #f5f3ff; }
+
+  .arrival-tip { margin: 0 26px; padding: 13px 16px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 14px; font-size: 13px; line-height: 1.7; color: #92400e; }
+  .map-wrap { height: 300px; margin: 0 26px; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 4px 16px rgba(30,41,59,.06); }
+  .map-hint { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--muted); font-size: 13px; background: #f8fafc; }
+
+  .timeline { padding: 26px; }
+  .day { position: relative; display: flex; gap: 18px; }
+  .day:not(:last-child) { padding-bottom: 30px; }
+  .day-rail { position: relative; display: flex; flex-direction: column; align-items: center; }
+  .day-rail::after { content: ""; position: absolute; top: 46px; bottom: -30px; width: 2.5px; background: linear-gradient(var(--primary), var(--primary-2)); opacity: .25; border-radius: 2px; }
+  .day:last-child .day-rail::after { display: none; }
+  .day-node {
+    width: 44px; height: 44px; border-radius: 50%; flex: none;
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    color: #fff; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 17px; z-index: 1;
+    box-shadow: 0 4px 14px rgba(99,102,241,.45), 0 0 0 5px rgba(99,102,241,.08);
+  }
+  .day-body { flex: 1; min-width: 0; }
+  .day-theme { font-size: 17px; font-weight: 700; margin: 6px 0 3px; }
+  .day-date { font-size: 12px; color: var(--muted); margin-bottom: 13px; }
+
+  .gallery { width: 185px; flex: none; }
+  .gallery-main { width: 185px; height: 122px; border-radius: 12px; overflow: hidden; background: #eef2ff; cursor: zoom-in; box-shadow: 0 3px 10px rgba(30,41,59,.08); }
+  .gallery-main img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s ease; }
+  .gallery-main:hover img { transform: scale(1.08); }
+  .gallery-thumbs { display: flex; gap: 5px; margin-top: 5px; }
+  .gallery-thumbs img { width: 56px; height: 42px; object-fit: cover; border-radius: 7px; cursor: pointer; border: 2px solid transparent; transition: all .15s; }
+  .gallery-thumbs img:hover { transform: translateY(-2px); }
+  .gallery-thumbs img.active { border-color: var(--primary); }
+
+  .attractions { display: flex; flex-direction: column; gap: 13px; }
+  .attraction { display: flex; gap: 16px; border: 1px solid var(--border); border-radius: 16px; padding: 14px; transition: all .22s; background: #fff; }
+  .attraction:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: #d6daf5; }
+  .attraction-info { flex: 1; min-width: 0; }
+  .attraction-name { font-weight: 700; font-size: 15.5px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .time-badge { font-size: 11px; font-weight: 700; color: #fff; background: linear-gradient(135deg, var(--primary), var(--primary-2)); padding: 3px 10px; border-radius: 12px; }
+  .attraction-addr { color: var(--muted); font-size: 12px; margin: 5px 0 9px; }
+  .highlight { font-size: 13px; color: #b45309; background: #fffbeb; border-radius: 10px; padding: 8px 11px; margin-bottom: 9px; line-height: 1.65; border-left: 3px solid var(--accent); }
+  .warning { font-size: 12px; color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 6px 10px; margin-top: 8px; line-height: 1.5; }
+  .attraction-note { font-size: 13px; color: #475569; line-height: 1.75; }
+  .attraction-dur { margin-top: 8px; font-size: 12px; color: var(--primary); font-weight: 700; }
+  .transport { font-size: 12px; color: #0284c7; margin-top: 6px; line-height: 1.55; background: #f0f9ff; border-radius: 8px; padding: 5px 9px; }
+
+  .breaks { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .break { display: flex; align-items: center; gap: 11px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 11px; padding: 8px 13px; font-size: 13px; }
+  .break-img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; cursor: zoom-in; flex: none; }
+  .break-time { font-weight: 700; color: #16a34a; white-space: nowrap; }
+  .break-name { font-weight: 600; }
+  .break-type { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .break-note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  .meals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 11px; margin-top: 13px; }
+  .meal { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; transition: all .2s; background: #fff; }
+  .meal:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+  .meal-img { width: 100%; height: 92px; object-fit: cover; cursor: zoom-in; }
+  .meal-info { padding: 9px 11px; display: flex; flex-direction: column; gap: 3px; }
+  .meal-type { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .meal-time { font-size: 11px; color: var(--primary); font-weight: 700; }
+  .meal-name { font-size: 13px; font-weight: 700; line-height: 1.35; }
+  .meal-signature { font-size: 12px; color: #b45309; font-weight: 600; }
+  .meal-cost { font-size: 12px; color: var(--accent); font-weight: 700; }
+  .meal-recommend { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  .hotel { display: flex; gap: 13px; margin-top: 13px; border: 1px solid var(--border); border-radius: 14px; padding: 12px; align-items: center; transition: all .2s; background: #fff; }
+  .hotel:hover { box-shadow: var(--shadow); }
+  .hotel-img { width: 68px; height: 68px; border-radius: 10px; object-fit: cover; cursor: zoom-in; flex: none; }
+  .hotel-name { font-weight: 700; font-size: 14px; }
+  .hotel-addr { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .hotel-reason { color: #6d28d9; font-size: 12px; margin-top: 3px; }
+  .hotel-cost { margin-left: auto; color: var(--accent); font-weight: 800; white-space: nowrap; }
+
+  .plan-foot { padding: 18px 26px; border-top: 1px solid var(--border); background: #fbfbfe; }
+  .suggestions { font-size: 13px; color: #475569; line-height: 1.85; background: #f8fafc; border-radius: 12px; padding: 13px 15px; }
+  .suggestions b { color: var(--primary); }
+  .followups { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 13px; }
+  .followups span { font-size: 12px; color: var(--muted); }
+  .followups button { padding: 7px 13px; border-radius: 16px; border: 1px solid var(--border); background: #fff; color: var(--primary); cursor: pointer; font-size: 12px; transition: all .15s; }
+  .followups button:hover { background: #eef2ff; border-color: var(--primary); }
+
+  .error-msg { color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; padding: 13px 16px; border-radius: 14px; font-size: 14px; }
+
+  .modal { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: none; align-items: center; justify-content: center; z-index: 90; }
+  .modal.show { display: flex; }
+  .team-box { background: #fff; border-radius: 22px; padding: 26px; width: 92%; max-width: 480px; max-height: 86vh; overflow-y: auto; box-shadow: 0 24px 70px rgba(0,0,0,.35); }
+  .team-box h3 { font-size: 19px; margin-bottom: 6px; }
+  .team-box .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .team-member { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
+  .team-member select { flex: 1; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border); font-size: 14px; outline: none; font-family: inherit; }
+  .team-member .rm { background: #fee2e2; color: #dc2626; border: none; width: 34px; height: 34px; border-radius: 9px; cursor: pointer; font-size: 14px; }
+  #addMember { width: 100%; padding: 11px; border: 1px dashed var(--border); border-radius: 11px; background: #f8fafc; color: var(--primary); cursor: pointer; font-size: 14px; }
+  #addMember:hover { background: #eef2ff; }
+  .team-score { margin-top: 18px; }
+  .score-big { font-size: 36px; font-weight: 800; color: var(--primary); }
+  .score-label { font-size: 15px; font-weight: 700; color: var(--text); }
+  .score-parts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .score-parts .sp { font-size: 12px; background: #f1f5f9; border-radius: 8px; padding: 6px 10px; color: var(--muted); }
+  .team-sugg { margin-top: 14px; }
+  .team-sugg .s { font-size: 13px; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 9px; padding: 8px 11px; margin-top: 7px; line-height: 1.6; }
+
+  .save-btn { margin-top: 12px; width: 100%; padding: 11px; border: 1px dashed var(--primary); border-radius: 12px; background: #eef2ff; color: var(--primary); cursor: pointer; font-size: 14px; font-weight: 600; }
+  .save-btn:hover { background: #e0e7ff; }
+  .save-btn.saved { background: #f0fdf4; border-color: #bbf7d0; color: #16a34a; cursor: default; }
+  .trip-item { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; transition: all .15s; }
+  .trip-item:hover { border-color: var(--primary); box-shadow: var(--shadow); }
+  .trip-item .t-title { font-weight: 700; font-size: 14px; }
+  .trip-item .t-meta { color: var(--muted); font-size: 12px; margin-top: 3px; }
+  .trip-item .t-actions { margin-top: 8px; display: flex; gap: 8px; }
+  .trip-item .t-actions button { padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 12px; }
+  .trip-item .t-actions .del { color: #dc2626; border-color: #fecaca; }
+  .journal { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .journal h4 { font-size: 14px; margin-bottom: 8px; }
+  .journal textarea { width: 100%; min-height: 80px; border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-size: 13px; font-family: inherit; outline: none; resize: vertical; }
+  .journal-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .journal-photos img { width: 90px; height: 68px; object-fit: cover; border-radius: 8px; cursor: zoom-in; }
+  .journal .j-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+  #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.9); display: none; align-items: center; justify-content: center; z-index: 100; cursor: zoom-out; backdrop-filter: blur(4px); }
+  #lightbox.show { display: flex; }
+  #lightbox img { max-width: 92%; max-height: 92%; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+
+  footer { position: fixed; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, var(--bg) 35%); padding: 16px 22px 22px; }
+  #form { max-width: 900px; margin: 0 auto; display: flex; gap: 10px; background: var(--card); border-radius: 26px; padding: 6px 6px 6px 22px; box-shadow: 0 10px 30px rgba(30,41,59,.14); border: 1px solid var(--border); }
+  #input { flex: 1; border: none; outline: none; font-size: 15px; background: transparent; padding: 11px 0; }
+  #sendBtn { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff; border: none; padding: 12px 28px; border-radius: 22px; font-size: 15px; cursor: pointer; font-weight: 700; transition: all .2s; box-shadow: 0 4px 14px rgba(99,102,241,.35); }
+  #sendBtn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,.45); }
+
+  @media (max-width: 600px) {
+    .attraction { flex-direction: column; }
+    .gallery { width: 100%; }
+    .gallery-main { width: 100%; height: 170px; }
+    .meals { grid-template-columns: 1fr; }
+    .welcome-inner h2 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo"><img src="/static/mascot-icon.png" alt="大肥鱼" title="大肥鱼 · 形象来自开源桌宠项目 CC BY-NC-SA 4.0"></div>
+    <div><h1>智能旅行助手</h1><p>真实图片 · 地图 · 交通 · 预算，一站式攻略</p></div>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <button id="teamBtn">👥 团队匹配</button>
+    <button id="tripsBtn">📒 我的行程</button>
+    <button id="resetBtn">↺ 新对话</button>
+  </div>
+</header>
+
+<main>
+  <div id="welcome">
+    <div class="welcome-inner">
+      <div class="w-left">
+        <div class="w-icon"><img src="/static/mascot.png" alt="大肥鱼"></div>
+        <h2>今天想去哪里旅行？</h2>
+        <p>告诉我目的地和天数，我帮你规划一份带真实图片、地图、地铁线路、打车费、预算和每日时间表的完整攻略</p>
+        <div class="mindmap">
+          <div class="mm-center">智能旅行助手</div>
+          <div class="mm-branches">
+            <div class="mm-item">🏛 景点</div>
+            <div class="mm-item">🍜 美食</div>
+            <div class="mm-item">🏨 住宿</div>
+            <div class="mm-item">🚇 交通</div>
+            <div class="mm-item">💰 预算</div>
+            <div class="mm-item">🎭 MBTI 定制</div>
+          </div>
+        </div>
+        <div class="w-chips">
+          <button data-q="帮我规划北京3天旅行">🏯 北京 3 天</button>
+          <button data-q="杭州2天，想去西湖周边">🌊 杭州 2 天</button>
+          <button data-q="成都2天美食之旅">🍢 成都 2 天美食</button>
+          <button data-q="上海2天亲子游">🎡 上海 2 天亲子</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="messages"></div>
+</main>
+
+<footer>
+  <form id="form">
+    <input id="input" placeholder="输入目的地和天数，例如：帮我规划北京3天旅行" autocomplete="off">
+    <button id="sendBtn" type="submit">发送</button>
+  </form>
+</footer>
+
+<div id="teamModal" class="modal">
+  <div class="team-box">
+    <h3>👥 团队匹配度</h3>
+    <div class="sub">添加每个同行人的 MBTI，看这个组合的旅行默契度</div>
+    <div id="teamMembers"></div>
+    <button id="addMember">+ 添加成员</button>
+    <div id="teamScore"></div>
+    <button id="closeTeam" class="q-submit" style="margin-top:16px;">关闭</button>
+  </div>
+</div>
+
+<div id="tripsModal" class="modal">
+  <div class="team-box" style="max-width:680px;">
+    <h3>📒 我的行程</h3>
+    <div class="sub">保存的计划都在这里，旅游后可以补照片、写感受</div>
+    <div id="tripList"></div>
+    <button id="closeTrips" class="q-submit" style="margin-top:16px;">关闭</button>
+  </div>
+</div>
+
+<div id="lightbox"><img id="lightboxImg"></div>
+
+<script>
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const messages = document.getElementById('messages');
+  const resetBtn = document.getElementById('resetBtn');
+  const welcome = document.getElementById('welcome');
+  const main = document.querySelector('main');
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+
+  let needsPrefs = true;
+
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  const WEATHER_ICON = { 晴:'☀️', 多云:'⛅', 阴:'☁️', 雨:'🌧️', 小雨:'🌧️', 雪:'❄️', 霾:'🌫️', 雾:'🌫️', 雷阵雨:'⛈️' };
+  const mealLabel = { breakfast:'早餐', lunch:'午餐', dinner:'晚餐' };
+  const MBTI = {
+    ISTJ:'稳健务实型：偏爱历史古迹/博物馆/老店，重视预约和营业时间；避雷临时改路线、网红打卡、无序集市',
+    ISFJ:'温柔感受型：偏爱老街市集/茶馆/治愈小镇/湖边慢逛，重视舒适和同行人感受；避雷高强度暴走、流水线景点',
+    ESTJ:'高效领队型：偏爱城市地标/知名景区/美食商圈，目标明确；避雷绕路、管理混乱',
+    ESFJ:'社交分享型：偏爱夜市/美食街/民俗节庆/适合拍照的地方，喜欢热闹；避雷冷清、服务差',
+    ISTP:'冷静体验派：偏爱手工工坊/骑行/自驾/硬核体验；避雷长篇讲解、强制打卡',
+    ISFP:'感官浪漫派：偏爱海边/森林/小众美术馆/咖啡店/日落，审美敏感；避雷人山人海、网红模板店',
+    ESTP:'户外玩家：偏爱刺激项目/夜市砍价/街头小吃/livehouse；避雷枯燥展馆、死板行程',
+    ESFP:'快乐乐天派：偏爱乐园/音乐节/市集/特色小吃/歌舞演出；避雷学术讲解、高强度徒步',
+    INTJ:'主题深度研究者：偏爱专题博物馆/遗址/建筑巡礼/天文台，为一套知识脉络出行；避雷肤浅打卡',
+    INFJ:'精神共鸣型：偏爱古寺/深山/人文纪念馆/作家故居/禅意村落；避雷喧闹商业化',
+    ENTJ:'战略探索家：偏爱高山观景台/峡谷/大国工程/城市规划展馆，喜欢宏大格局；避雷细碎打卡点',
+    ENFJ:'人文共情向导：偏爱民俗村落/非遗/文化古城/公益向旅行；避雷冰冷纯打卡',
+    INTP:'好奇漫游者：偏爱冷门博物馆/旧天文台/二手书街/城市迷宫小巷；避雷灌输式讲解、打卡KPI',
+    INFP:'诗意幻想家：偏爱森林/湖畔/旧书店/作家故居/黄昏海边，需要留白；避雷人潮拥挤、赶场打卡',
+    ENTP:'好奇捣蛋探索家：偏爱创意街区/跳蚤市场/多元文化街区/特色清吧；避雷千篇一律、死板安排',
+    ENFP:'快乐追梦人：偏爱彩色小镇/花海/文创街区/即兴市集/livehouse；避雷紧绷赶行程、固定KPI'
+  };
+  const MBTI_NAME = { ISTJ:'检查员', ISFJ:'守卫者', ESTJ:'总经理', ESFJ:'执政官', ISTP:'手艺人', ISFP:'艺术家', ESTP:'企业家', ESFP:'表演者', INTJ:'建筑师', INFJ:'提倡者', ENTJ:'指挥官', ENFJ:'主人公', INTP:'逻辑学家', INFP:'调停者', ENTP:'辩论家', ENFP:'竞选者' };
+
+  function scrollBottom() { main.scrollTop = main.scrollHeight; }
+  function openLightbox(url) { lightboxImg.src = url; lightbox.classList.add('show'); }
+  lightbox.addEventListener('click', () => lightbox.classList.remove('show'));
+
+  function addUser(q) {
+    if (welcome) welcome.style.display = 'none';
+    const div = document.createElement('div');
+    div.className = 'user-msg';
+    div.innerHTML = `<div class="bubble">${esc(q)}</div>`;
+    messages.appendChild(div); scrollBottom();
+  }
+  function addLoading() {
+    const div = document.createElement('div');
+    div.className = 'loading';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    messages.appendChild(div); scrollBottom();
+    return div;
+  }
+
+  // ===== 地图 =====
+  let amapKey = '';
+  fetch('/config').then(r => r.json()).then(c => { amapKey = c.amap_js_key || ''; });
+  function ensureAmap(cb) {
+    if (window.AMap) { cb(); return; }
+    if (!amapKey) return;
+    if (!window.__amapCbs) {
+      window.__amapCbs = [cb];
+      const s = document.createElement('script');
+      s.src = `https://webapi.amap.com/maps?v=2.0&key=${amapKey}`;
+      s.onload = () => { window.__amapCbs.forEach(f => f()); window.__amapCbs = []; };
+      document.head.appendChild(s);
+    } else window.__amapCbs.push(cb);
+  }
+  function renderMap(planDiv, plan) {
+    const wrap = planDiv.querySelector('.map-wrap');
+    if (!wrap) return;
+    const points = [];
+    (plan.days || []).forEach(d => {
+      (d.attractions || []).forEach(a => {
+        if (a.lng && a.lat) points.push({ name: a.name, lng: parseFloat(a.lng), lat: parseFloat(a.lat), day: (d.day_index ?? 0) + 1 });
+      });
+    });
+    if (!points.length) { wrap.remove(); return; }
+    if (!amapKey) { wrap.innerHTML = '<div class="map-hint">🗺️ 配置高德 JS key 后可显示地图</div>'; return; }
+    ensureAmap(() => {
+      const map = new AMap.Map(wrap, { zoom: 12 });
+      const markers = points.map(p => new AMap.Marker({
+        position: [p.lng, p.lat], title: p.name,
+        label: { content: `<div style="background:#3b82f6;color:#fff;padding:2px 7px;border-radius:8px;font-size:11px;font-weight:700;">D${p.day}</div>`, offset: new AMap.Pixel(-15, -30) }
+      }));
+      map.add(markers); map.setFitView(markers);
+    });
+  }
+
+  // ===== 询问面板 =====
+  function addQuestionnaire(base) {
+    const div = document.createElement('div');
+    div.className = 'question';
+    div.innerHTML = `
+      <div class="q-title">🎯 为了给你更贴心的规划，请补充以下信息：</div>
+      <div class="q-group">
+        <div class="q-label">出发日期</div>
+        <input type="date" class="q-date">
+      </div>
+      <div class="q-group">
+        <div class="q-label">到达信息（如：高铁 14:30 到北京南站）</div>
+        <input type="text" class="q-text" placeholder="高铁 14:30 到北京南站">
+      </div>
+      <div class="q-group">
+        <div class="q-label">离开信息（如：11月9日 17:00 高铁离开）</div>
+        <input type="text" class="q-text" placeholder="11月9日 17:00 高铁离开">
+      </div>
+      <div class="q-group">
+        <div class="q-label">出行方式</div>
+        <div class="q-opts" data-group="transport">
+          <button data-v="自驾">🚗 自驾</button><button data-v="高铁">🚄 高铁</button><button data-v="飞机">✈️ 飞机</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">同行人群</div>
+        <div class="q-opts" data-group="group">
+          <button data-v="独自">🧍 独自</button><button data-v="情侣">💑 情侣</button><button data-v="亲子">👨‍👩‍👧 亲子</button><button data-v="带老人">👴 带老人</button><button data-v="朋友">👥 朋友</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">兴趣偏好（可多选）</div>
+        <div class="q-opts" data-group="interest">
+          <button data-v="历史文化">🏛 历史文化</button><button data-v="美食">🍜 美食</button><button data-v="自然风光">🏞 自然风光</button><button data-v="购物">🛍 购物</button><button data-v="夜生活">🌃 夜生活</button><button data-v="文艺">🎨 文艺</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">旅行主题</div>
+        <div class="q-opts" data-group="theme">
+          <button data-v="不指定">🎒 不指定</button><button data-v="美食主线">🍜 美食主线</button><button data-v="看海发呆">🌊 看海发呆</button><button data-v="城市人文">🏙 城市人文</button><button data-v="历史研学">🏛 历史研学</button><button data-v="citywalk">🚶 citywalk</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">这次旅行最想获得什么？（可多选）</div>
+        <div class="q-opts" data-group="expectation">
+          <button data-v="放松休闲">😌 放松休闲</button><button data-v="看景点">📸 看景点</button><button data-v="尝美食">🍜 尝美食</button><button data-v="留下回忆">📷 留下回忆</button><button data-v="陪伴家人">👨‍👩‍👧 陪伴家人</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">口味偏好（可多选）</div>
+        <div class="q-opts" data-group="taste">
+          <button data-v="辣">🌶 辣</button><button data-v="甜">🍰 甜</button><button data-v="清淡">🥗 清淡</button><button data-v="重口味">🍲 重口味</button><button data-v="减脂餐">🥦 减脂餐</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">同行人数</div>
+        <div class="q-opts" data-group="count">
+          <button data-v="独自">🧍 独自</button><button data-v="2人">👫 2人</button><button data-v="3-5人">👨‍👩‍👧 3-5人</button><button data-v="6人以上">👥 6人以上</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">住宿预算（每晚）</div>
+        <div class="q-opts" data-group="hotelbudget">
+          <button data-v="¥150以下">¥150以下</button><button data-v="¥150-300">¥150-300</button><button data-v="¥300-600">¥300-600</button><button data-v="¥600以上">¥600以上</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">餐饮预算（人均每餐）</div>
+        <div class="q-opts" data-group="foodbudget">
+          <button data-v="¥30以下">¥30以下</button><button data-v="¥30-80">¥30-80</button><button data-v="¥80-150">¥80-150</button><button data-v="¥150以上">¥150以上</button>
+        </div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">同行人 MBTI（可添加多人，自动算团队默契度）</div>
+        <div id="qTeamMembers"></div>
+        <button type="button" id="qAddMember" class="q-add-member">+ 添加一位同行人</button>
+        <div id="qTeamScore" class="mbti-result"></div>
+      </div>
+      <div class="q-group">
+        <div class="q-label">住宿偏好（可多选）</div>
+        <div class="q-opts" data-group="accom">
+          <button data-v="平价">💰 平价</button><button data-v="舒适">🏨 舒适</button><button data-v="靠近景点">📍 靠近景点</button><button data-v="交通方便">🚇 交通方便</button>
+        </div>
+      </div>
+      <button class="q-submit" disabled>开始规划 →</button>`;
+    messages.appendChild(div); scrollBottom();
+
+    const dateInput = div.querySelector('.q-date');
+    const submit = div.querySelector('.q-submit');
+    let selTransport = null, selGroup = null, selCount = null, selHotelBudget = null, selFoodBudget = null, selTheme = null;
+    const selInterest = new Set(), selAccom = new Set(), selExpectation = new Set(), selTaste = new Set();
+
+    function bindSingle(group, setter) {
+      div.querySelector(`[data-group="${group}"]`).querySelectorAll('button').forEach(b => {
+        b.addEventListener('click', () => {
+          div.querySelector(`[data-group="${group}"]`).querySelectorAll('button').forEach(x => x.classList.remove('active'));
+          b.classList.add('active'); setter(b.dataset.v); submit.disabled = !selTransport;
+        });
+      });
+    }
+    function bindMulti(group, set) {
+      div.querySelector(`[data-group="${group}"]`).querySelectorAll('button').forEach(b => {
+        b.addEventListener('click', () => {
+          b.classList.toggle('active');
+          if (b.classList.contains('active')) set.add(b.dataset.v); else set.delete(b.dataset.v);
+        });
+      });
+    }
+    bindSingle('transport', v => selTransport = v);
+    bindSingle('group', v => selGroup = v);
+    bindSingle('count', v => selCount = v);
+    bindSingle('hotelbudget', v => selHotelBudget = v);
+    bindSingle('foodbudget', v => selFoodBudget = v);
+    bindSingle('theme', v => selTheme = v);
+    bindMulti('interest', selInterest);
+    bindMulti('expectation', selExpectation);
+    bindMulti('taste', selTaste);
+    bindMulti('accom', selAccom);
+
+    // 团队 MBTI：可添加多人，实时算默契度
+    const qTeamMembers = div.querySelector('#qTeamMembers');
+    const qTeamScore = div.querySelector('#qTeamScore');
+    function addQMember() {
+      const row = document.createElement('div');
+      row.className = 'team-member';
+      const opts = Object.keys(MBTI_NAME).map(t => `<option value="${t}">${t} · ${MBTI_NAME[t]}</option>`).join('');
+      row.innerHTML = `<select><option value="">— 选择 MBTI —</option>${opts}</select><button class="rm" type="button">✕</button>`;
+      row.querySelector('select').addEventListener('change', refreshQTeam);
+      row.querySelector('.rm').addEventListener('click', () => { row.remove(); refreshQTeam(); });
+      qTeamMembers.appendChild(row);
+    }
+    function refreshQTeam() {
+      const types = [...qTeamMembers.querySelectorAll('select')].map(s => s.value).filter(Boolean);
+      if (types.length < 2) {
+        qTeamScore.textContent = types.length ? '再添加一位同行人，可算团队默契度' : '';
+        return;
+      }
+      const r = teamScore(types);
+      const label = r.total >= 90 ? '天作之合' : r.total >= 75 ? '很搭' : r.total >= 60 ? '还行' : '需要磨合';
+      qTeamScore.innerHTML = `团队默契度 <b>${r.total}</b> 分 · ${label}${r.sugg.length ? '｜💡 ' + r.sugg[0] : ''}`;
+    }
+    div.querySelector('#qAddMember').addEventListener('click', addQMember);
+    addQMember();
+
+    submit.addEventListener('click', () => {
+      let q = base;
+      const date = dateInput.value;
+      if (date) {
+        const wd = ['周日','周一','周二','周三','周四','周五','周六'][new Date(date + 'T00:00:00').getDay()];
+        q += `。出发日期：${date}（${wd}）`;
+      }
+      const [arrival, departure] = [...div.querySelectorAll('.q-text')].map(i => i.value.trim());
+      if (arrival) q += `。到达信息：${arrival}`;
+      if (departure) q += `。离开信息：${departure}`;
+      if (selTransport) q += `。出行方式：${selTransport}`;
+      if (selGroup) q += `。同行人群：${selGroup}`;
+      if (selExpectation.size) q += `。旅行期望：${[...selExpectation].join('、')}`;
+      if (selInterest.size) q += `。兴趣偏好：${[...selInterest].join('、')}`;
+      if (selTheme && selTheme !== '不指定') q += `。旅行主题：${selTheme}`;
+      if (selTaste.size) q += `。口味偏好：${[...selTaste].join('、')}`;
+      if (selCount) q += `。同行人数：${selCount}`;
+      if (selHotelBudget) q += `。住宿预算：每晚${selHotelBudget}`;
+      if (selFoodBudget) q += `。餐饮预算：人均每餐${selFoodBudget}`;
+      const teamTypes = [...qTeamMembers.querySelectorAll('select')].map(s => s.value).filter(Boolean);
+      if (teamTypes.length) {
+        q += `。同行人MBTI：${teamTypes.join('、')}（团队出行，请参考团队整体偏好、满足大多数人需求即可，别硬套刻板印象）`;
+      }
+      if (selAccom.size) q += `。住宿偏好：${[...selAccom].join('、')}`;
+      div.remove(); addUser(q); needsPrefs = false; plan(q);
+    });
+  }
+
+  function addAssistant(plan) {
+    const div = document.createElement('div');
+    if (plan && plan.error) {
+      div.innerHTML = `<div class="error-msg">⚠️ ${esc(plan.error)}</div>`;
+    } else {
+      div.innerHTML = renderPlan(plan);
+      div.querySelectorAll('.gallery').forEach(g => loadGallery(g, g.dataset.k, g.dataset.c));
+      div.querySelectorAll('img[data-k]').forEach(img => loadSingle(img, img.dataset.k, img.dataset.c));
+      div.querySelectorAll('.followups button').forEach(b => b.addEventListener('click', () => sendFollowup(b.dataset.follow)));
+      div.querySelectorAll('.save-btn').forEach(b => b.addEventListener('click', () => saveTrip(plan, lastQuestion)));
+      renderMap(div, plan);
+    }
+    messages.appendChild(div); scrollBottom();
+  }
+
+  function renderPlan(p) {
+    const city = esc(p.city || '');
+    const w = p.weather || {};
+    const wIcon = WEATHER_ICON[w.weather] || '🌤️';
+    const budget = (p.budget && p.budget.total) ? '¥' + esc(p.budget.total) : '';
+    const trans = p.transportation ? `<span class="chip trans">🚄 ${esc(p.transportation)}</span>` : '';
+    const group = p.group ? `<span class="chip">👥 ${esc(p.group)}</span>` : '';
+    const arrival = p.arrival_tip ? `<div class="arrival-tip">🚉 <b>到达安排</b>：${esc(p.arrival_tip)}</div>` : '';
+    const arrivalInfo = p.arrival ? `<span class="chip trans">🛬 ${esc(p.arrival)}</span>` : '';
+    const departureInfo = p.departure ? `<span class="chip">🛫 ${esc(p.departure)}</span>` : '';
+
+    const daysHtml = (p.days || []).map(d => {
+      const idx = (d.day_index ?? 0) + 1;
+      const date = d.date ? `<div class="day-date">📅 ${esc(d.date)}</div>` : '';
+
+      const attrs = (d.attractions || []).map(a => `
+        <div class="attraction">
+          <div class="gallery" data-k="${esc(a.name)}" data-c="${city}"><div class="gallery-main"></div><div class="gallery-thumbs"></div></div>
+          <div class="attraction-info">
+            <div class="attraction-name">${esc(a.name)} ${a.time ? `<span class="time-badge">${esc(a.time)}</span>` : ''}</div>
+            <div class="attraction-addr">📍 ${esc(a.address)}</div>
+            ${a.highlight ? `<div class="highlight">⭐ ${esc(a.highlight)}</div>` : ''}
+            <div class="attraction-note">${esc(a.note)}</div>
+            ${a.warning ? `<div class="warning">⚠️ ${esc(a.warning)}</div>` : ''}
+            <div class="attraction-dur">⏱ 建议游览约 ${esc(a.visit_duration_min)} 分钟</div>
+            ${a.transport ? `<div class="transport">🚇 ${esc(a.transport)}</div>` : ''}
+          </div>
+        </div>`).join('');
+
+      const meals = (d.meals || []).map(m => `
+        <div class="meal">
+          <img class="meal-img" data-k="${esc(m.name)}" data-c="${city}" style="display:none">
+          <div class="meal-info">
+            <div class="meal-type">${mealLabel[m.type] || esc(m.type)} ${m.time ? `<span class="meal-time">${esc(m.time)}</span>` : ''}</div>
+            <div class="meal-name">${esc(m.name)}</div>
+            ${m.signature ? `<div class="meal-signature">🍽 ${esc(m.signature)}</div>` : ''}
+            <div class="meal-cost">人均 ¥${esc(m.estimated_cost)}</div>
+            ${m.recommend ? `<div class="meal-recommend">${esc(m.recommend)}</div>` : ''}
+          </div>
+        </div>`).join('');
+
+      const hotel = d.hotel || {};
+      const hotelHtml = hotel.name ? `
+        <div class="hotel">
+          <img class="hotel-img" data-k="${esc(hotel.name)}" data-c="${city}" style="display:none">
+          <div>
+            <div class="hotel-name">${esc(hotel.name)}</div>
+            <div class="hotel-addr">📍 ${esc(hotel.address)}</div>
+            ${hotel.reason ? `<div class="hotel-reason">💡 ${esc(hotel.reason)}</div>` : ''}
+          </div>
+          <div class="hotel-cost">¥${esc(hotel.estimated_cost)}</div>
+        </div>` : '';
+
+      const breaksHtml = (d.breaks || []).map(b => `
+        <div class="break">
+          <img class="break-img" data-k="${esc(b.name)}" data-c="${city}" style="display:none">
+          <span class="break-time">☕ ${esc(b.time || '')}</span>
+          <div class="break-info">
+            <span class="break-name">${esc(b.name || '')}${b.type ? ` <span class="break-type">· ${esc(b.type)}</span>` : ''}</span>
+            ${b.note ? `<div class="break-note">${esc(b.note)}</div>` : ''}
+          </div>
+        </div>`).join('');
+
+      return `
+        <div class="day">
+          <div class="day-rail"><div class="day-node">${idx}</div></div>
+          <div class="day-body">
+            <div class="day-theme">${esc(d.theme || '')}</div>
+            ${date}
+            <div class="attractions">${attrs}</div>
+            ${breaksHtml ? `<div class="breaks">${breaksHtml}</div>` : ''}
+            <div class="meals">${meals}</div>
+            ${hotelHtml}
+          </div>
+        </div>`;
+    }).join('');
+
+    const sug = p.suggestions ? `<div class="suggestions">💡 <b>实用建议</b>：${esc(p.suggestions)}</div>` : '';
+    const followups = `
+      <div class="followups">
+        <span>💬 想调整？</span>
+        <button data-follow="把第二天的行程换成美食主题">换成美食</button>
+        <button data-follow="酒店换成更便宜的">换便宜酒店</button>
+        <button data-follow="把每天的行程排得更紧凑一点">排紧凑些</button>
+      </div>`;
+
+    return `
+      <div class="plan">
+        <div class="plan-head">
+          <div class="plan-city">${city}</div>
+          <div class="plan-meta">
+            ${trans}${group}${arrivalInfo}${departureInfo}
+            <span class="chip weather">${wIcon} ${esc(w.weather || '')} ${esc(w.temperature || '')}°C</span>
+            ${budget ? `<span class="chip budget">💰 总预算 ${budget}</span>` : ''}
+          </div>
+        </div>
+        ${arrival}
+        <div class="map-wrap"></div>
+        <div class="timeline">${daysHtml}</div>
+        <div class="plan-foot">${sug}${followups}<button class="save-btn">💾 保存到我的行程</button></div>
+      </div>`;
+  }
+
+  function loadGallery(g, keyword, city) {
+    fetch(`/photo?keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(city)}`)
+      .then(r => r.json()).then(d => {
+        const urls = d.urls || [];
+        if (!urls.length) { g.remove(); return; }
+        const mainBox = g.querySelector('.gallery-main');
+        const thumbs = g.querySelector('.gallery-thumbs');
+        const mainImg = document.createElement('img');
+        mainImg.src = urls[0]; mainImg.onclick = () => openLightbox(urls[0]);
+        mainBox.appendChild(mainImg);
+        urls.forEach((u, i) => {
+          const t = document.createElement('img');
+          t.src = u; if (i === 0) t.className = 'active';
+          t.onclick = e => { e.stopPropagation(); mainImg.src = u; mainImg.onclick = () => openLightbox(u); thumbs.querySelectorAll('img').forEach(x => x.classList.remove('active')); t.classList.add('active'); };
+          thumbs.appendChild(t);
+        });
+      }).catch(() => g.remove());
+  }
+  function loadSingle(img, keyword, city) {
+    fetch(`/photo?keyword=${encodeURIComponent(keyword)}&city=${encodeURIComponent(city)}`)
+      .then(r => r.json()).then(d => {
+        const urls = d.urls || [];
+        if (!urls.length) { img.remove(); return; }
+        img.onload = () => img.style.display = 'block';
+        img.onerror = () => img.remove();
+        img.src = urls[0]; img.onclick = () => openLightbox(urls[0]);
+      }).catch(() => img.remove());
+  }
+
+  async function plan(q) {
+    lastQuestion = q;
+    const loading = addLoading();
+    try {
+      const res = await fetch('/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q }) });
+      const data = await res.json();
+      loading.remove(); addAssistant(data);
+    } catch (err) { loading.remove(); addAssistant({ error: '请求失败：' + err.message }); }
+  }
+  function sendFollowup(q) { addUser(q); plan(q); }
+
+  // ===== 团队 MBTI 匹配度（自研评分）=====
+  function teamScore(types) {
+    const n = types.length;
+    const count = L => types.filter(t => t.includes(L)).length;
+    const E = count('E'), I = count('I'), J = count('J'), P = count('P'), T = count('T'), F = count('F');
+
+    // 1. E/I 平衡（0-25）：参半最佳，全同最差
+    const eRatio = E / n;
+    let ei = 25;
+    if (eRatio === 0 || eRatio === 1) ei = 8;
+    else if (eRatio < 0.3 || eRatio > 0.7) ei = 15;
+
+    // 2. J/P 平衡（0-25）：至少 1 个 J 规划 + 1 个 P 弹性
+    let jp = 25;
+    if (J >= 1 && P >= 1) jp = 25;
+    else if (J === 0) jp = 8;
+    else jp = 15;
+
+    // 3. 角色覆盖（0-30）：规划/气氛/理性/感性
+    let roles = 0;
+    if (J >= 1) roles++;
+    if (E >= 1) roles++;
+    if (T >= 1) roles++;
+    if (F >= 1) roles++;
+    const role = Math.round(roles / 4 * 30);
+
+    // 4. 和谐度（0-20）：四个维度上占多数的比例
+    let harmony = 0;
+    [['E','I'],['S','N'],['T','F'],['J','P']].forEach(([a,b]) => { harmony += Math.max(count(a), count(b)) / n; });
+    const har = Math.round(harmony / 4 * 20);
+
+    const total = ei + jp + role + har;
+
+    const sugg = [];
+    if (J === 0) sugg.push('缺少「规划者」，建议加入一位 J 型（如 ISTJ / INTJ）负责统筹行程与预算');
+    if (E === 0) sugg.push('全员偏内向，建议加入一位 E 型（如 ENFP / ESFJ）活跃气氛、带节奏');
+    if (I === 0) sugg.push('全员偏外向，建议加入一位 I 型（如 INFJ / ISTP）让行程有留白和沉淀');
+    if (F === 0) sugg.push('缺少感性视角，一位 F 型（如 ENFJ / ISFJ）会更照顾大家的情绪');
+    if (T === 0) sugg.push('缺少理性决策者，一位 T 型（如 ESTJ / INTJ）能帮忙把时间和预算算清楚');
+
+    return { total, parts: { ei, jp, role, har }, sugg };
+  }
+  function addMember() {
+    const div = document.createElement('div');
+    div.className = 'team-member';
+    const opts = Object.keys(MBTI).map(t => `<option value="${t}">${t} · ${MBTI_NAME[t] || ''}</option>`).join('');
+    div.innerHTML = `<select><option value="">— 选择 MBTI —</option>${opts}</select><button class="rm">✕</button>`;
+    div.querySelector('select').addEventListener('change', calcTeam);
+    div.querySelector('.rm').addEventListener('click', () => { div.remove(); calcTeam(); });
+    document.getElementById('teamMembers').appendChild(div);
+  }
+  function calcTeam() {
+    const types = [...document.querySelectorAll('#teamMembers select')].map(s => s.value).filter(Boolean);
+    const box = document.getElementById('teamScore');
+    if (types.length < 2) { box.innerHTML = types.length ? '<div class="sub" style="margin-top:12px;">再添加一位成员，看看默契度</div>' : ''; return; }
+    const r = teamScore(types);
+    const label = r.total >= 90 ? '天作之合' : r.total >= 75 ? '很搭' : r.total >= 60 ? '还行' : '需要磨合';
+    box.innerHTML = `
+      <div class="team-score">
+        <div><span class="score-big">${r.total}</span><span class="score-label"> 分 · ${label}</span></div>
+        <div class="score-parts">
+          <span class="sp">E/I 平衡 ${r.parts.ei}</span><span class="sp">J/P 平衡 ${r.parts.jp}</span>
+          <span class="sp">角色覆盖 ${r.parts.role}</span><span class="sp">和谐度 ${r.parts.har}</span>
+        </div>
+        <div class="team-sugg">${r.sugg.map(s => `<div class="s">💡 ${s}</div>`).join('')}</div>
+      </div>`;
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    input.value = ''; addUser(q);
+    if (needsPrefs) addQuestionnaire(q); else plan(q);
+  });
+  document.querySelectorAll('#welcome [data-q]').forEach(b => {
+    b.addEventListener('click', () => {
+      const q = b.dataset.q; addUser(q);
+      if (needsPrefs) addQuestionnaire(q); else plan(q);
+    });
+  });
+  resetBtn.addEventListener('click', async () => {
+    await fetch('/reset', { method: 'POST' });
+    messages.innerHTML = '';
+    if (welcome) welcome.style.display = '';
+    needsPrefs = true;
+  });
+  document.getElementById('teamBtn').addEventListener('click', () => document.getElementById('teamModal').classList.add('show'));
+  document.getElementById('closeTeam').addEventListener('click', () => document.getElementById('teamModal').classList.remove('show'));
+  document.getElementById('addMember').addEventListener('click', addMember);
+  addMember(); addMember();
+
+  // ===== 旅行记录(保存/我的行程/回顾) =====
+  let lastQuestion = '';
+  function saveTrip(plan, question) {
+    fetch('/trips', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, plan }) })
+      .then(r => r.json()).then(() => {
+        document.querySelectorAll('.save-btn').forEach(b => { b.textContent = '✓ 已保存到我的行程'; b.classList.add('saved'); });
+      });
+  }
+  document.getElementById('tripsBtn').addEventListener('click', () => { document.getElementById('tripsModal').classList.add('show'); loadTripList(); });
+  document.getElementById('closeTrips').addEventListener('click', () => document.getElementById('tripsModal').classList.remove('show'));
+  function loadTripList() {
+    const box = document.getElementById('tripList');
+    fetch('/trips').then(r => r.json()).then(d => {
+      const trips = d.trips || [];
+      if (!trips.length) { box.innerHTML = '<div class="sub">还没有保存的行程</div>'; return; }
+      box.innerHTML = trips.map(t => `
+        <div class="trip-item">
+          <div class="t-title">${esc(t.city || '未命名行程')} · ${esc(t.created_at)}</div>
+          <div class="t-meta">${esc((t.question || '').slice(0, 50))}</div>
+          <div class="t-actions">
+            <button data-view="${t.id}">📖 查看 / 写回顾</button>
+            <button class="del" data-del="${t.id}">🗑 删除</button>
+          </div>
+        </div>`).join('');
+      box.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => viewTrip(b.dataset.view)));
+      box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); delTrip(b.dataset.del); }));
+    });
+  }
+  function viewTrip(id) {
+    fetch('/trips/' + id).then(r => r.json()).then(t => {
+      if (t.error) { document.getElementById('tripList').innerHTML = `<div class="error-msg">${esc(t.error)}</div>`; return; }
+      const box = document.getElementById('tripList');
+      box.innerHTML = `
+        <button class="q-add-member" onclick="loadTripList()" style="margin:0 0 12px;">← 返回列表</button>
+        <div class="plan" style="margin-bottom:4px;">${renderPlan(t.plan)}</div>
+        <div class="journal">
+          <h4>✍️ 旅行回顾</h4>
+          <textarea id="reviewInput" placeholder="写下你的旅行感受...">${esc(t.review || '')}</textarea>
+          <div class="journal-photos" id="journalPhotos">${(t.photos || []).map(p => `<img src="${p}" onclick="openLightbox('${p}')">`).join('')}</div>
+          <div class="j-actions">
+            <input type="file" id="photoInput" accept="image/*" multiple>
+            <button class="q-submit" id="saveJournal" style="width:auto;padding:10px 20px;margin:0;">保存回顾</button>
+          </div>
+        </div>`;
+      box.querySelectorAll('.gallery').forEach(g => loadGallery(g, g.dataset.k, g.dataset.c));
+      box.querySelectorAll('img[data-k]').forEach(img => loadSingle(img, img.dataset.k, img.dataset.c));
+      document.getElementById('photoInput').addEventListener('change', e => {
+        [...e.target.files].forEach(f => {
+          const rd = new FileReader();
+          rd.onload = () => {
+            const img = document.createElement('img');
+            img.src = rd.result; img.onclick = () => openLightbox(rd.result);
+            document.getElementById('journalPhotos').appendChild(img);
+          };
+          rd.readAsDataURL(f);
+        });
+      });
+      document.getElementById('saveJournal').addEventListener('click', () => {
+        const review = document.getElementById('reviewInput').value;
+        const photos = [...document.querySelectorAll('#journalPhotos img')].map(i => i.src);
+        fetch('/trips/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ review, photos }) })
+          .then(r => r.json()).then(() => { document.getElementById('saveJournal').textContent = '✓ 已保存'; });
+      });
+    });
+  }
+  function delTrip(id) {
+    if (!confirm('确定删除这条行程？')) return;
+    fetch('/trips/' + id, { method: 'DELETE' }).then(() => loadTripList());
+  }
+</script>
+</body>
+</html>
